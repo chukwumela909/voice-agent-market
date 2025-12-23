@@ -1,26 +1,176 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dark + Metallic Silver Theme */
+  --background: #0f0f1a;
+  --background-secondary: #1a1a2e;
+  --background-tertiary: #16213e;
+  --foreground: #e5e5e5;
+  --foreground-muted: #9ca3af;
+  
+  /* Metallic Silver Accents */
+  --accent: #c0c0c0;
+  --accent-light: #d4d4d4;
+  --accent-dark: #808080;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --success-light: #34d399;
+  --danger: #ef4444;
+  --danger-light: #f87171;
+  --warning: #f59e0b;
+  --warning-light: #fbbf24;
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  --gradient-accent: linear-gradient(135deg, #c0c0c0 0%, #808080 100%);
+  --gradient-glow: radial-gradient(circle, rgba(192, 192, 192, 0.1) 0%, transparent 70%);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-dark) var(--background-secondary);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--accent-dark);
+  border-radius: 4px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(192, 192, 192, 0.1);
+}
+
+/* Metallic button styles */
+.btn-metallic {
+  background: linear-gradient(135deg, #c0c0c0 0%, #a0a0a0 50%, #c0c0c0 100%);
+  color: #1a1a2e;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-metallic:hover {
+  background: linear-gradient(135deg, #d4d4d4 0%, #b0b0b0 50%, #d4d4d4 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.3);
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(192, 192, 192, 0.3);
+}
+
+.glow-success {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.glow-danger {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* Pulse animation for recording */
+@keyframes pulse-recording {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-pulse-recording {
+  animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+/* Wave animation for audio */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
+.animate-wave {
+  animation: wave 0.5s ease-in-out infinite;
+}
+
+/* Card styles */
+.card {
+  background: var(--background-secondary);
+  border: 1px solid rgba(192, 192, 192, 0.1);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(192, 192, 192, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Input styles */
+input, textarea, select {
+  background: var(--background-tertiary);
+  border: 1px solid rgba(192, 192, 192, 0.2);
+  color: var(--foreground);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(192, 192, 192, 0.1);
+}
+
+/* Voice visualizer bars */
+.voice-bar {
+  background: linear-gradient(to top, var(--accent-dark), var(--accent));
+  border-radius: 2px;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--background-secondary) 25%, var(--background-tertiary) 50%, var(--background-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
