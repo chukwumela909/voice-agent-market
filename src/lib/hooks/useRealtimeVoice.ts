@@ -10,6 +10,7 @@ interface UseRealtimeVoiceOptions {
   onError?: (error: string) => void;
   onConnectionChange?: (connected: boolean) => void;
   onSpeakingChange?: (isSpeaking: boolean) => void;
+  onFetchingData?: (isFetching: boolean, toolName?: string) => void;
 }
 
 interface RealtimeEvent {
@@ -26,12 +27,14 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     onError,
     onConnectionChange,
     onSpeakingChange,
+    onFetchingData,
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -211,10 +214,17 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         onResponse?.(event.transcript);
         break;
 
+      case 'response.function_call_arguments.done':
+        // Function call received - execute it
+        handleFunctionCall(event);
+        break;
+
       case 'response.done':
         // Full response complete
         setIsSpeaking(false);
+        setIsFetchingData(false);
         onSpeakingChange?.(false);
+        onFetchingData?.(false);
         break;
 
       case 'error':
@@ -230,7 +240,65 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         setIsListening(false);
         break;
     }
-  }, [onTranscript, onResponse, onError, onSpeakingChange]);
+  }, [onTranscript, onResponse, onError, onSpeakingChange, onFetchingData]);
+
+  // Handle function calls from the AI
+  const handleFunctionCall = useCallback(async (event: RealtimeEvent) => {
+    const { call_id, name, arguments: argsString } = event;
+    
+    // Notify UI that we're fetching data
+    setIsFetchingData(true);
+    onFetchingData?.(true, name);
+
+    try {
+      const args = JSON.parse(argsString);
+      
+      // Call our backend to execute the tool
+      const response = await fetch('/api/voice/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: name, arguments: args }),
+      });
+
+      const result = await response.json();
+
+      // Send the result back to OpenAI
+      if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+        // Send function result
+        const outputEvent = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'function_call_output',
+            call_id,
+            output: JSON.stringify(result),
+          },
+        };
+        dataChannelRef.current.send(JSON.stringify(outputEvent));
+
+        // Trigger AI to continue responding with the data
+        dataChannelRef.current.send(JSON.stringify({ type: 'response.create' }));
+      }
+    } catch (err) {
+      console.error('Function call error:', err);
+      
+      // Send error result back to OpenAI
+      if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+        const errorEvent = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'function_call_output',
+            call_id,
+            output: JSON.stringify({ success: false, error: 'Failed to fetch data' }),
+          },
+        };
+        dataChannelRef.current.send(JSON.stringify(errorEvent));
+        dataChannelRef.current.send(JSON.stringify({ type: 'response.create' }));
+      }
+    } finally {
+      setIsFetchingData(false);
+      onFetchingData?.(false);
+    }
+  }, [onFetchingData]);
 
   const disconnect = useCallback(() => {
     // Close data channel
@@ -260,6 +328,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     setIsConnected(false);
     setIsListening(false);
     setIsSpeaking(false);
+    setIsFetchingData(false);
     onConnectionChange?.(false);
   }, [onConnectionChange]);
 
@@ -312,6 +381,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     isConnecting,
     isListening,
     isSpeaking,
+    isFetchingData,
     error,
     connect,
     disconnect,

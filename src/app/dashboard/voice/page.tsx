@@ -4,13 +4,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRealtimeVoice } from '@/lib/hooks/useRealtimeVoice';
-import { X, Mic, Volume2 } from 'lucide-react';
+import { X, Mic, Volume2, Loader2 } from 'lucide-react';
 
 export default function VoicePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [transcript, setTranscript] = useState('');
-  const [response, setResponse] = useState('');
+  const [fetchingTool, setFetchingTool] = useState<string | null>(null);
   
   // Audio visualization
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -19,26 +18,32 @@ export default function VoicePage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Friendly tool names for display
+  const getToolDisplayName = (toolName: string) => {
+    switch (toolName) {
+      case 'get_market_price': return 'Fetching price data...';
+      case 'get_technical_analysis': return 'Analyzing indicators...';
+      case 'get_market_news': return 'Getting latest news...';
+      case 'get_multiple_prices': return 'Fetching portfolio data...';
+      default: return 'Fetching data...';
+    }
+  };
+
   const {
     isSupported,
     isConnected,
     isConnecting,
     isListening,
     isSpeaking,
+    isFetchingData,
     error,
     connect,
     disconnect,
   } = useRealtimeVoice({
     context: 'dashboard',
     userId: user?.id,
-    onTranscript: (text, isFinal) => {
-      setTranscript(text);
-      if (isFinal) {
-        setTimeout(() => setTranscript(''), 2000);
-      }
-    },
-    onResponse: (text) => {
-      setResponse(text);
+    onFetchingData: (isFetching, toolName) => {
+      setFetchingTool(isFetching && toolName ? toolName : null);
     },
     onError: (err) => {
       console.error('Voice error:', err);
@@ -189,12 +194,14 @@ export default function VoicePage() {
         <div className="text-center mb-8">
           <p className={`text-lg font-medium mb-2 ${
             error ? 'text-red-400' : 
+            isFetchingData ? 'text-yellow-400' :
             isSpeaking ? 'text-accent' :
             isListening ? 'text-green-400' :
             'text-foreground-muted'
           }`}>
             {error ? 'Error connecting' :
              isConnecting ? 'Connecting...' :
+             isFetchingData ? (fetchingTool ? getToolDisplayName(fetchingTool) : 'Fetching data...') :
              isSpeaking ? 'Vivid is speaking...' :
              isListening ? 'Listening...' :
              !isConnected ? 'Tap to connect' :
@@ -204,20 +211,12 @@ export default function VoicePage() {
           {error && (
             <p className="text-sm text-red-400/70">{error}</p>
           )}
-        </div>
 
-        {/* Transcript / Response Display */}
-        <div className="w-full max-w-md text-center min-h-[100px]">
-          {transcript && (
-            <div className="mb-4 animate-in fade-in">
-              <p className="text-sm text-foreground-muted mb-1">You said:</p>
-              <p className="text-lg text-foreground">&ldquo;{transcript}&rdquo;</p>
-            </div>
-          )}
-          
-          {response && !transcript && (
-            <div className="animate-in fade-in">
-              <p className="text-lg text-accent font-medium">{response}</p>
+          {/* Fetching indicator */}
+          {isFetchingData && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Loader2 className="w-4 h-4 animate-spin text-yellow-400" />
+              <span className="text-sm text-foreground-muted">Getting real-time data</span>
             </div>
           )}
         </div>
