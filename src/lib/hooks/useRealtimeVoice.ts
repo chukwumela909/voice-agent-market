@@ -253,11 +253,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     try {
       const args = JSON.parse(argsString);
       
-      // Call our backend to execute the tool
+      // Call our backend to execute the tool (include userId for portfolio operations)
       const response = await fetch('/api/voice/tools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: name, arguments: args }),
+        body: JSON.stringify({ tool: name, arguments: args, userId }),
       });
 
       const result = await response.json();
@@ -288,7 +288,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           item: {
             type: 'function_call_output',
             call_id,
-            output: JSON.stringify({ success: false, error: 'Failed to fetch data' }),
+            output: JSON.stringify({ success: false, error: 'Failed to fetch data. Please try again.' }),
           },
         };
         dataChannelRef.current.send(JSON.stringify(errorEvent));
@@ -298,7 +298,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       setIsFetchingData(false);
       onFetchingData?.(false);
     }
-  }, [onFetchingData]);
+  }, [onFetchingData, userId]);
 
   const disconnect = useCallback(() => {
     // Close data channel

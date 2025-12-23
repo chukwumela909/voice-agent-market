@@ -24,7 +24,10 @@ export default function VoicePage() {
       case 'get_market_price': return 'Fetching price data...';
       case 'get_technical_analysis': return 'Analyzing indicators...';
       case 'get_market_news': return 'Getting latest news...';
-      case 'get_multiple_prices': return 'Fetching portfolio data...';
+      case 'get_multiple_prices': return 'Fetching multiple prices...';
+      case 'get_user_portfolio': return 'Loading your portfolio...';
+      case 'add_portfolio_holding': return 'Updating your portfolio...';
+      case 'remove_portfolio_holding': return 'Updating your portfolio...';
       default: return 'Fetching data...';
     }
   };

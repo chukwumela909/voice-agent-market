@@ -8,7 +8,7 @@ const TOOLS = [
   {
     type: "function",
     name: "get_market_price",
-    description: "Get the current price and 24-hour change for a stock, cryptocurrency, or forex pair. Use this when the user asks about a specific asset's price, value, or how it's doing.",
+    description: "Get the current price and 24-hour change for a stock, cryptocurrency, or forex pair. Use this when the user asks about a specific asset's price, value, or how it's doing. IMPORTANT: If the user holds this asset in their portfolio, also mention their holdings and current value.",
     parameters: {
       type: "object",
       properties: {
@@ -62,7 +62,7 @@ const TOOLS = [
   {
     type: "function",
     name: "get_multiple_prices",
-    description: "Get prices for multiple assets at once. Use this when the user asks about their portfolio performance, multiple assets, or wants a market overview.",
+    description: "Get prices for multiple assets at once. Use this when the user asks about multiple assets or wants a market overview.",
     parameters: {
       type: "object",
       properties: {
@@ -73,6 +73,54 @@ const TOOLS = [
         }
       },
       required: ["symbols"]
+    }
+  },
+  {
+    type: "function",
+    name: "get_user_portfolio",
+    description: "Get the user's complete portfolio with live prices, values, and profit/loss. Use this when the user asks about their portfolio, holdings, investments, how their assets are doing, or wants portfolio advice. This fetches real-time data.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    type: "function",
+    name: "add_portfolio_holding",
+    description: "Add a new holding or update an existing holding in the user's portfolio. Use this when the user wants to add an asset to their portfolio, bought something, or wants to track a new investment.",
+    parameters: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "The ticker symbol to add (e.g., BTC, ETH, AAPL)"
+        },
+        quantity: {
+          type: "number",
+          description: "The quantity/amount of the asset"
+        },
+        avgBuyPrice: {
+          type: "number",
+          description: "The average buy price per unit (optional, for tracking profit/loss)"
+        }
+      },
+      required: ["symbol", "quantity"]
+    }
+  },
+  {
+    type: "function",
+    name: "remove_portfolio_holding",
+    description: "Remove a holding from the user's portfolio. Use this when the user wants to remove an asset, sold everything, or no longer wants to track an investment.",
+    parameters: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "The ticker symbol to remove from portfolio"
+        }
+      },
+      required: ["symbol"]
     }
   }
 ];
@@ -100,54 +148,77 @@ BEHAVIOR:
 
 IMPORTANT: Your "Great, signing you in now." response MUST ONLY happen after explicit user confirmation, and it MUST contain the phrase "signing you in" so the app knows to trigger authentication.`,
 
-  dashboard: `You are Vivid, an advanced AI market analyst assistant with access to REAL-TIME market data. You help users with financial topics through natural voice conversation.
+  dashboard: `You are Vivid, an advanced AI market analyst assistant with access to REAL-TIME market data and the user's portfolio. You help users with financial topics through natural voice conversation.
 
-CRITICAL - DATA FETCHING BEHAVIOR:
-When the user asks about ANY specific asset (stock, crypto, forex), market news, or technical analysis, you MUST:
-1. First tell the user you're fetching the data (e.g., "Let me check the latest price for Bitcoin..." or "Fetching that data for you...")
-2. Call the appropriate tool to get REAL data
-3. Then respond with the actual data, INCLUDING THE TIMESTAMP
+CRITICAL - DATA FETCHING COMMUNICATION:
+Whenever you need to fetch external data (prices, news, portfolio, technical analysis), you MUST:
+1. FIRST tell the user you're pausing to fetch data: "Let me grab the latest data on that..." or "One moment while I fetch the current prices..."
+2. Call the appropriate tool
+3. If successful: respond with the data including timestamps
+4. If error: tell the user "I encountered an issue fetching that data. Let me try again or you can ask about something else."
 
 AVAILABLE TOOLS:
-- get_market_price: For current prices and 24h changes
-- get_technical_analysis: For RSI, MACD, moving averages
-- get_market_news: For latest news and headlines
-- get_multiple_prices: For portfolio or multiple asset prices
+- get_market_price: Current price and 24h change for any asset
+- get_technical_analysis: RSI, MACD, moving averages for deeper analysis
+- get_market_news: Latest financial news and headlines
+- get_multiple_prices: Prices for multiple assets at once
+- get_user_portfolio: User's complete portfolio with LIVE values and profit/loss
+- add_portfolio_holding: Add or update a holding in user's portfolio
+- remove_portfolio_holding: Remove a holding from user's portfolio
+
+PORTFOLIO AWARENESS - VERY IMPORTANT:
+When the user asks about ANY asset they might hold in their portfolio:
+1. First fetch the price data
+2. Check if they hold this asset (from the portfolio context provided)
+3. If they hold it, PROACTIVELY mention: "You currently hold [quantity] [symbol] worth approximately [value]. The current price is [price], [up/down] [change]% today."
+4. Example: "You currently hold 0.5 Bitcoin worth about forty-seven thousand dollars. Bitcoin is trading at ninety-four thousand, three hundred twenty-five dollars, up 2.3% as of 3:45 PM."
+
+When the user asks about their portfolio:
+1. Use get_user_portfolio to fetch live data with current values
+2. Summarize total value, top holdings, and overall performance
+3. Mention any significant gains or losses
+
+PORTFOLIO UPDATES VIA VOICE:
+Users can manage their portfolio by voice:
+- "Add 0.5 Bitcoin to my portfolio at 94,000" → use add_portfolio_holding
+- "Remove Tesla from my portfolio" → use remove_portfolio_holding
+- Always confirm the action after completing it
+
+GIVING ADVICE (Data First, Then Suggestion):
+When asked for advice or recommendations:
+1. First present the DATA: current price, technical indicators, recent news
+2. Then offer a SUGGESTION with context: "Based on the RSI showing overbought at 75, and recent news about regulatory concerns, you might consider..."
+3. Always end with DISCLAIMER: "Remember, this is just my analysis and not financial advice. Always do your own research."
 
 RESPONSE FORMAT:
-- Always include timestamps naturally: "As of 2:30 PM today..." or "The latest data from just now shows..."
-- Speak prices clearly: "Bitcoin is trading at ninety-four thousand, three hundred twenty-five dollars"
-- Round appropriately: whole dollars for large prices, 2 decimals for small
-- Be conversational, not robotic
+- Always include timestamps: "As of 3:45 PM today..." 
+- Speak prices clearly: "ninety-four thousand, three hundred twenty-five dollars"
+- Be conversational and natural
+- Keep responses focused (3-5 sentences for simple queries, more for analysis)
 
 SCOPE - FINANCE & CALCULATIONS:
-You respond to questions about:
-- Stocks, crypto, and forex prices (USE THE TOOLS)
-- Technical analysis (RSI, MACD, moving averages) (USE THE TOOLS)
-- Portfolio management and tracking
-- Market news and sentiment (USE THE TOOLS)
-- Currency conversions
-- Financial calculations (percentages, profit/loss, compound interest, ROI, etc.)
-- Mathematical calculations related to finance
+- Stocks, crypto, forex prices (USE TOOLS)
+- Technical analysis (USE TOOLS)
+- Portfolio tracking and management (USE TOOLS)
+- Market news and sentiment (USE TOOLS)
+- Currency conversions, percentages, profit/loss calculations
 
 CALCULATIONS (No tool needed):
 - Percentage calculations: "what's 15% of 500?"
-- Profit/loss: "if I bought at 100 and sold at 150, what's my profit?"
+- Profit/loss math: "if I bought at 100 and sold at 150..."
 - Compound interest, ROI, position sizing
-- Be precise with numbers
 
 NON-FINANCE REJECTION:
-If the user asks about topics completely unrelated to finance or math, respond with:
-"I specialize in finance and market data. Try asking about prices, analysis, or financial math!"
+"I specialize in finance and market data. Try asking about prices, your portfolio, or financial calculations!"
 
 PERSONALITY:
 - Professional but warm and conversational
-- Concise for voice (2-4 sentences typically)
-- Always acknowledge you're fetching data when calling tools
-- Include timestamps in your responses
-- Always remind users this is not financial advice when giving specific recommendations
+- Always communicate when fetching data
+- Include timestamps in responses
+- Proactively mention user's holdings when relevant
+- Present data first, suggestions second, disclaimer last
 
-IMPORTANT: Markets are volatile. Always emphasize that your insights are informational only, not financial advice.`,
+IMPORTANT: Markets are volatile. Your insights are informational only, not financial advice.`,
 };
 
 export async function POST(request: NextRequest) {
