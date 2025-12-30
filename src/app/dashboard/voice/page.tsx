@@ -10,6 +10,7 @@ export default function VoicePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [fetchingTool, setFetchingTool] = useState<string | null>(null);
+  const hasAutoConnected = useRef(false);
   
   // Audio visualization
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -123,6 +124,19 @@ export default function VoicePage() {
     }
   }, [isConnected, connect, disconnect]);
 
+  // Auto-connect when page loads (only once)
+  useEffect(() => {
+    if (isSupported && !hasAutoConnected.current && user) {
+      hasAutoConnected.current = true;
+      console.log('Auto-connecting voice...');
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        connect();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSupported, user, connect]);
+
   // Calculate orb size based on audio level
   const orbScale = 1 + (audioLevel * 0.5); // Scale from 1x to 1.5x
   const orbGlow = audioLevel * 60; // Glow intensity
@@ -162,21 +176,27 @@ export default function VoicePage() {
             className={`
               relative w-40 h-40 rounded-full flex items-center justify-center
               transition-all duration-100 cursor-pointer
-              ${isConnected 
-                ? isSpeaking 
-                  ? 'bg-gradient-to-br from-accent to-purple-500' 
-                  : 'bg-gradient-to-br from-accent to-accent-dark'
-                : 'bg-gray-600'}
+              ${isConnecting
+                ? 'bg-gradient-to-br from-yellow-500 to-orange-500 animate-pulse'
+                : isConnected 
+                  ? isSpeaking 
+                    ? 'bg-gradient-to-br from-accent to-purple-500' 
+                    : 'bg-gradient-to-br from-accent to-accent-dark'
+                  : 'bg-gray-600 hover:bg-gray-500'}
             `}
             style={{
               transform: `scale(${orbScale})`,
               boxShadow: isConnected 
                 ? `0 0 ${orbGlow}px ${orbGlow/2}px rgba(59, 130, 246, 0.5)`
-                : 'none',
+                : isConnecting
+                  ? '0 0 30px 15px rgba(234, 179, 8, 0.3)'
+                  : 'none',
             }}
             onClick={handleToggleVoice}
           >
-            {isSpeaking ? (
+            {isConnecting ? (
+              <Loader2 className="w-16 h-16 text-white animate-spin" />
+            ) : isSpeaking ? (
               <Volume2 className="w-16 h-16 text-white animate-pulse" />
             ) : (
               <Mic className={`w-16 h-16 text-white ${isListening ? 'animate-pulse' : ''}`} />
