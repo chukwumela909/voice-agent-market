@@ -82,11 +82,20 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       // Set up audio element for AI responses
       const audioEl = document.createElement('audio');
       audioEl.autoplay = true;
+      audioEl.setAttribute('playsinline', 'true'); // For iOS Safari
+      // Append to DOM - required for audio playback in most browsers
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
       audioElementRef.current = audioEl;
 
       // Handle incoming audio from OpenAI
       pc.ontrack = (event) => {
+        console.log('Received audio track from OpenAI');
         audioEl.srcObject = event.streams[0];
+        // Ensure playback starts (handle autoplay restrictions)
+        audioEl.play().catch(e => {
+          console.warn('Audio autoplay blocked, will play on user interaction:', e);
+        });
         
         // Monitor when AI is speaking
         const audioTrack = event.streams[0].getAudioTracks()[0];
@@ -322,6 +331,10 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     // Clean up audio element
     if (audioElementRef.current) {
       audioElementRef.current.srcObject = null;
+      // Remove from DOM
+      if (audioElementRef.current.parentNode) {
+        audioElementRef.current.parentNode.removeChild(audioElementRef.current);
+      }
       audioElementRef.current = null;
     }
 
