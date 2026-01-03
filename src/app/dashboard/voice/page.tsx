@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRealtimeVoice } from '@/lib/hooks/useRealtimeVoice';
+import VividVoiceVisualizer from '@/components/VividVoiceVisualizer';
 import { X, Mic, Volume2, Loader2 } from 'lucide-react';
 
 export default function VoicePage() {
@@ -17,7 +18,6 @@ export default function VoicePage() {
   const animationRef = useRef<number | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   // Friendly tool names for display
   const getToolDisplayName = (toolName: string) => {
@@ -40,6 +40,7 @@ export default function VoicePage() {
     isListening,
     isSpeaking,
     isFetchingData,
+    mediaStream,
     error,
     connect,
     disconnect,
@@ -56,15 +57,14 @@ export default function VoicePage() {
 
   // Set up audio visualization
   useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected || !mediaStream) {
       setAudioLevel(0);
       return;
     }
 
     const setupVisualization = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
+        const stream = mediaStream;
         
         const audioContext = new AudioContext();
         audioContextRef.current = audioContext;
@@ -102,14 +102,11 @@ export default function VoicePage() {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
     };
-  }, [isConnected]);
+  }, [isConnected, mediaStream]);
 
   const handleClose = () => {
     disconnect();
@@ -126,16 +123,19 @@ export default function VoicePage() {
 
   // Auto-connect when page loads (only once)
   useEffect(() => {
-    if (isSupported && !hasAutoConnected.current && user) {
-      hasAutoConnected.current = true;
-      console.log('Auto-connecting voice...');
-      // Small delay to ensure component is fully mounted
-      const timer = setTimeout(() => {
-        connect();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isSupported, user, connect]);
+    if (!isSupported || !user) return;
+    if (hasAutoConnected.current) return;
+    if (isConnected || isConnecting) return;
+    
+    hasAutoConnected.current = true;
+    console.log('Auto-connecting voice...');
+    // Small delay to ensure component is fully mounted
+    const timer = setTimeout(() => {
+      connect();
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupported, user]);
 
   // Calculate orb size based on audio level
   const orbScale = 1 + (audioLevel * 0.5); // Scale from 1x to 1.5x
@@ -143,6 +143,13 @@ export default function VoicePage() {
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      <VividVoiceVisualizer 
+        className="absolute inset-0 z-0 pointer-events-none"
+        level={isConnected ? audioLevel : 0.05}
+        isConnected={true}
+        isSpeaking={isSpeaking}
+        isFetching={!!fetchingTool}
+      />
       {/* Close Button */}
       <button
         onClick={handleClose}

@@ -35,6 +35,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -227,6 +228,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
     }
+    setMediaStream(null);
 
     // Clean up audio element
     if (audioElementRef.current) {
@@ -333,6 +335,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         }
       });
       mediaStreamRef.current = stream;
+      setMediaStream(stream);
       console.log('Got microphone access');
 
       // Add microphone track to peer connection
@@ -475,6 +478,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     isListening,
     isSpeaking,
     isFetchingData,
+    mediaStream,
     error,
     connect,
     disconnect,
