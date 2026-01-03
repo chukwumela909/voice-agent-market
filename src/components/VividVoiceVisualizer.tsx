@@ -161,14 +161,12 @@ export default function VividVoiceVisualizer(props: VividVoiceVisualizerProps) {
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const styles = getComputedStyle(root);
-
-    const accent = styles.getPropertyValue('--accent').trim() || '#c0c0c0';
-    const accentDark = styles.getPropertyValue('--accent-dark').trim() || '#808080';
-    const background = styles.getPropertyValue('--background').trim() || '#0f0f1a';
-
-    paletteRef.current = { accent, accentDark, background };
+    // Use hardcoded values - CSS variables may not be available immediately
+    paletteRef.current = { 
+      accent: '#c0c0c0', 
+      accentDark: '#808080', 
+      background: '#0f0f1a' 
+    };
   }, []);
 
   useEffect(() => {

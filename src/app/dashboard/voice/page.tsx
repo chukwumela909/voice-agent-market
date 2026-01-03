@@ -123,7 +123,7 @@ export default function VoicePage() {
 
   // Auto-connect when page loads (only once)
   useEffect(() => {
-    if (!isSupported || !user) return;
+    if (!isSupported) return;
     if (hasAutoConnected.current) return;
     if (isConnected || isConnecting) return;
     
@@ -135,31 +135,36 @@ export default function VoicePage() {
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupported, user]);
+  }, [isSupported]);
 
   // Calculate orb size based on audio level
   const orbScale = 1 + (audioLevel * 0.5); // Scale from 1x to 1.5x
   const orbGlow = audioLevel * 60; // Glow intensity
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden">
+      {/* Background layer */}
+      <div className="absolute inset-0 bg-background" />
+      
+      {/* Visualizer layer - above background */}
       <VividVoiceVisualizer 
-        className="absolute inset-0 z-0 pointer-events-none"
-        level={isConnected ? audioLevel : 0.05}
+        className="absolute inset-0 z-[1]"
+        level={isConnected ? audioLevel : 0.1}
         isConnected={true}
         isSpeaking={isSpeaking}
         isFetching={!!fetchingTool}
       />
+      
       {/* Close Button */}
       <button
         onClick={handleClose}
-        className="absolute top-6 right-6 z-10 p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+        className="absolute top-6 right-6 z-20 p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
       >
         <X className="w-6 h-6" />
       </button>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
         {/* Pulsing Orb Visualizer */}
         <div className="relative mb-12">
           {/* Outer glow rings */}
@@ -253,7 +258,7 @@ export default function VoicePage() {
       </div>
 
       {/* Bottom hint */}
-      <div className="p-6 text-center">
+      <div className="p-6 text-center relative z-10">
         <p className="text-sm text-foreground-muted/50">
           Ask about stocks, crypto, forex, or do financial calculations
         </p>
