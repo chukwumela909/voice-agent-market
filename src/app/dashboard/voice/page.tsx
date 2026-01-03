@@ -6,14 +6,28 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useRealtimeVoice } from '@/lib/hooks/useRealtimeVoice';
 import { X } from 'lucide-react';
 
+type Particle = {
+  angle: number;
+  baseRadius: number;
+  offset: number;
+  speed: number;
+  size: number;
+};
+
 export default function VoicePage() {
   const router = useRouter();
   const { user } = useAuth();
   const hasAutoConnected = useRef(false);
   
+  // Canvas and animation
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const animationRef = useRef<number | null>(null);
+  const audioLevelRef = useRef(0);
+  
   // Audio visualization
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationRef = useRef<number | null>(null);
+  const audioAnimationRef = useRef<number | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -33,9 +47,131 @@ export default function VoicePage() {
     },
   });
 
+  // Initialize particles
+  useEffect(() => {
+    const particleCount = 120;
+    const particles: Particle[] = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        angle: (i / particleCount) * Math.PI * 2,
+        baseRadius: 80,
+        offset: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 1.5,
+        size: 2 + Math.random() * 2,
+      });
+    }
+    
+    particlesRef.current = particles;
+  }, []);
+
+  // Canvas animation loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let time = 0;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const level = audioLevelRef.current;
+      time += 0.016 * (1 + level * 3); // Speed up with audio
+
+      const particles = particlesRef.current;
+
+      for (const p of particles) {
+        // Calculate displacement based on audio level
+        const vibration = Math.sin(time * p.speed + p.offset) * (10 + level * 40);
+        const radius = p.baseRadius + vibration + level * 30;
+
+        const x = centerX + Math.cos(p.angle + time * 0.1 * p.speed) * radius;
+        const y = centerY + Math.sin(p.angle + time * 0.1 * p.speed) * radius;
+
+        // Particle size pulses with audio
+        const size = p.size * (1 + level * 1.5);
+
+        // Color: silver with opacity based on level
+        const alpha = 0.4 + level * 0.6;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(192, 192, 192, ${alpha})`;
+        ctx.fill();
+
+        // Glow effect for larger particles
+        if (p.size > 3 && level > 0.1) {
+          ctx.beginPath();
+          ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(192, 192, 192, ${alpha * 0.2})`;
+          ctx.fill();
+        }
+      }
+
+      // Draw connecting lines between nearby particles
+      if (level > 0.05) {
+        ctx.strokeStyle = `rgba(192, 192, 192, ${0.1 + level * 0.2})`;
+        ctx.lineWidth = 0.5;
+
+        for (let i = 0; i < particles.length; i++) {
+          const p1 = particles[i];
+          const vibration1 = Math.sin(time * p1.speed + p1.offset) * (10 + level * 40);
+          const radius1 = p1.baseRadius + vibration1 + level * 30;
+          const x1 = centerX + Math.cos(p1.angle + time * 0.1 * p1.speed) * radius1;
+          const y1 = centerY + Math.sin(p1.angle + time * 0.1 * p1.speed) * radius1;
+
+          // Connect to next particle
+          const j = (i + 1) % particles.length;
+          const p2 = particles[j];
+          const vibration2 = Math.sin(time * p2.speed + p2.offset) * (10 + level * 40);
+          const radius2 = p2.baseRadius + vibration2 + level * 30;
+          const x2 = centerX + Math.cos(p2.angle + time * 0.1 * p2.speed) * radius2;
+          const y2 = centerY + Math.sin(p2.angle + time * 0.1 * p2.speed) * radius2;
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+      }
+
+      animationRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+
   // Set up audio visualization
   useEffect(() => {
     if (!isConnected || !mediaStream) {
+      audioLevelRef.current = 0;
       setAudioLevel(0);
       return;
     }
@@ -60,9 +196,11 @@ export default function VoicePage() {
           analyserRef.current.getByteFrequencyData(dataArray);
 
           const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-          setAudioLevel(average / 255);
+          const level = average / 255;
+          audioLevelRef.current = level;
+          setAudioLevel(level);
 
-          animationRef.current = requestAnimationFrame(updateLevel);
+          audioAnimationRef.current = requestAnimationFrame(updateLevel);
         };
 
         updateLevel();
@@ -74,8 +212,8 @@ export default function VoicePage() {
     setupVisualization();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+      if (audioAnimationRef.current) {
+        cancelAnimationFrame(audioAnimationRef.current);
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -110,12 +248,6 @@ export default function VoicePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupported]);
 
-  // Circle size based on audio level
-  const baseSize = 160;
-  const maxGrow = 80;
-  const circleSize = baseSize + (audioLevel * maxGrow);
-  const glowIntensity = 20 + (audioLevel * 60);
-
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] z-50 flex flex-col">
       {/* Close Button */}
@@ -126,25 +258,12 @@ export default function VoicePage() {
         <X className="w-6 h-6 text-white/70" />
       </button>
 
-      {/* Centered Circle */}
-      <div className="flex-1 flex items-center justify-center">
-        <div
-          onClick={handleToggleVoice}
-          className="rounded-full cursor-pointer transition-all duration-75"
-          style={{
-            width: circleSize,
-            height: circleSize,
-            background: isConnecting 
-              ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
-              : 'linear-gradient(135deg, #c0c0c0 0%, #808080 100%)',
-            boxShadow: isConnected 
-              ? `0 0 ${glowIntensity}px ${glowIntensity / 2}px rgba(192, 192, 192, 0.4)`
-              : isConnecting
-                ? '0 0 40px 20px rgba(251, 191, 36, 0.3)'
-                : '0 0 20px 10px rgba(192, 192, 192, 0.2)',
-          }}
-        />
-      </div>
+      {/* Particle Canvas */}
+      <canvas
+        ref={canvasRef}
+        onClick={handleToggleVoice}
+        className="flex-1 cursor-pointer"
+      />
 
       {/* Error display */}
       {error && (
