@@ -31,10 +31,13 @@ export default function VoicePage() {
   const [audioLevel, setAudioLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  const isSpeakingRef = useRef(false);
+
   const {
     isSupported,
     isConnected,
     isConnecting,
+    isSpeaking,
     mediaStream,
     error,
     connect,
@@ -46,6 +49,11 @@ export default function VoicePage() {
       console.error('Voice error:', err);
     },
   });
+
+  // Keep speaking ref in sync
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
 
   // Initialize particles
   useEffect(() => {
@@ -95,15 +103,33 @@ export default function VoicePage() {
 
       ctx.clearRect(0, 0, width, height);
 
-      const level = audioLevelRef.current;
+      // Combine user audio level with speaking state
+      const micLevel = audioLevelRef.current;
+      const speakingLevel = isSpeakingRef.current ? 0.5 + Math.sin(time * 8) * 0.3 : 0;
+      const level = Math.max(micLevel, speakingLevel);
+      
       time += 0.016 * (1 + level * 3); // Speed up with audio
 
       const particles = particlesRef.current;
+      const baseRadius = 80;
 
+      // Draw filled center circle
+      const centerRadius = baseRadius * (0.85 + level * 0.15);
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, centerRadius);
+      gradient.addColorStop(0, `rgba(192, 192, 192, ${0.3 + level * 0.4})`);
+      gradient.addColorStop(0.7, `rgba(128, 128, 128, ${0.2 + level * 0.3})`);
+      gradient.addColorStop(1, 'rgba(80, 80, 80, 0.1)');
+      
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw particles around the edge
       for (const p of particles) {
         // Calculate displacement based on audio level
-        const vibration = Math.sin(time * p.speed + p.offset) * (10 + level * 40);
-        const radius = p.baseRadius + vibration + level * 30;
+        const vibration = Math.sin(time * p.speed + p.offset) * (5 + level * 35);
+        const radius = p.baseRadius + vibration + level * 25;
 
         const x = centerX + Math.cos(p.angle + time * 0.1 * p.speed) * radius;
         const y = centerY + Math.sin(p.angle + time * 0.1 * p.speed) * radius;
@@ -112,7 +138,7 @@ export default function VoicePage() {
         const size = p.size * (1 + level * 1.5);
 
         // Color: silver with opacity based on level
-        const alpha = 0.4 + level * 0.6;
+        const alpha = 0.5 + level * 0.5;
         
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -125,33 +151,6 @@ export default function VoicePage() {
           ctx.arc(x, y, size * 2, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(192, 192, 192, ${alpha * 0.2})`;
           ctx.fill();
-        }
-      }
-
-      // Draw connecting lines between nearby particles
-      if (level > 0.05) {
-        ctx.strokeStyle = `rgba(192, 192, 192, ${0.1 + level * 0.2})`;
-        ctx.lineWidth = 0.5;
-
-        for (let i = 0; i < particles.length; i++) {
-          const p1 = particles[i];
-          const vibration1 = Math.sin(time * p1.speed + p1.offset) * (10 + level * 40);
-          const radius1 = p1.baseRadius + vibration1 + level * 30;
-          const x1 = centerX + Math.cos(p1.angle + time * 0.1 * p1.speed) * radius1;
-          const y1 = centerY + Math.sin(p1.angle + time * 0.1 * p1.speed) * radius1;
-
-          // Connect to next particle
-          const j = (i + 1) % particles.length;
-          const p2 = particles[j];
-          const vibration2 = Math.sin(time * p2.speed + p2.offset) * (10 + level * 40);
-          const radius2 = p2.baseRadius + vibration2 + level * 30;
-          const x2 = centerX + Math.cos(p2.angle + time * 0.1 * p2.speed) * radius2;
-          const y2 = centerY + Math.sin(p2.angle + time * 0.1 * p2.speed) * radius2;
-
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
         }
       }
 
