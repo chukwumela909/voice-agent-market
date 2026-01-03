@@ -8,7 +8,7 @@ import { X } from 'lucide-react';
 
 type Particle = {
   angle: number;
-  baseRadius: number;
+  distanceRatio: number; // 0 to 1, how far from center
   offset: number;
   speed: number;
   size: number;
@@ -57,16 +57,18 @@ export default function VoicePage() {
 
   // Initialize particles
   useEffect(() => {
-    const particleCount = 120;
+    const particleCount = 300;
     const particles: Particle[] = [];
     
     for (let i = 0; i < particleCount; i++) {
+      // Distribute particles throughout the circle using square root for uniform distribution
+      const distanceRatio = Math.sqrt(Math.random());
       particles.push({
-        angle: (i / particleCount) * Math.PI * 2,
-        baseRadius: 80,
+        angle: Math.random() * Math.PI * 2,
+        distanceRatio,
         offset: Math.random() * Math.PI * 2,
-        speed: 0.5 + Math.random() * 1.5,
-        size: 2 + Math.random() * 2,
+        speed: 0.3 + Math.random() * 1.2,
+        size: 0.8 + Math.random() * 1.2,
       });
     }
     
@@ -105,53 +107,39 @@ export default function VoicePage() {
 
       // Combine user audio level with speaking state
       const micLevel = audioLevelRef.current;
-      const speakingLevel = isSpeakingRef.current ? 0.5 + Math.sin(time * 8) * 0.3 : 0;
+      const speakingLevel = isSpeakingRef.current ? 0.6 + Math.sin(time * 10) * 0.35 : 0;
       const level = Math.max(micLevel, speakingLevel);
       
-      time += 0.016 * (1 + level * 3); // Speed up with audio
+      time += 0.016 * (1 + level * 4); // Speed up with audio
 
       const particles = particlesRef.current;
-      const baseRadius = 80;
+      const maxRadius = 90;
 
-      // Draw filled center circle
-      const centerRadius = baseRadius * (0.85 + level * 0.15);
-      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, centerRadius);
-      gradient.addColorStop(0, `rgba(192, 192, 192, ${0.3 + level * 0.4})`);
-      gradient.addColorStop(0.7, `rgba(128, 128, 128, ${0.2 + level * 0.3})`);
-      gradient.addColorStop(1, 'rgba(80, 80, 80, 0.1)');
-      
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
-      ctx.fillStyle = gradient;
-      ctx.fill();
-
-      // Draw particles around the edge
+      // Draw all particles
       for (const p of particles) {
-        // Calculate displacement based on audio level
-        const vibration = Math.sin(time * p.speed + p.offset) * (5 + level * 35);
-        const radius = p.baseRadius + vibration + level * 25;
+        // Base position within circle
+        const baseRadius = p.distanceRatio * maxRadius;
+        
+        // Vibration pushes particles outward based on audio level
+        const vibrationAmount = (5 + level * 50) * p.distanceRatio;
+        const vibration = Math.sin(time * p.speed * 2 + p.offset) * vibrationAmount;
+        const radius = baseRadius + vibration + level * 40 * p.distanceRatio;
 
-        const x = centerX + Math.cos(p.angle + time * 0.1 * p.speed) * radius;
-        const y = centerY + Math.sin(p.angle + time * 0.1 * p.speed) * radius;
+        // Particles also rotate slightly
+        const angleOffset = Math.sin(time * 0.5 + p.offset) * 0.1 * level;
+        const x = centerX + Math.cos(p.angle + angleOffset) * radius;
+        const y = centerY + Math.sin(p.angle + angleOffset) * radius;
 
         // Particle size pulses with audio
-        const size = p.size * (1 + level * 1.5);
+        const size = p.size * (1 + level * 2);
 
-        // Color: silver with opacity based on level
-        const alpha = 0.5 + level * 0.5;
+        // Brighter when audio is active
+        const alpha = 0.4 + level * 0.6;
         
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(192, 192, 192, ${alpha})`;
         ctx.fill();
-
-        // Glow effect for larger particles
-        if (p.size > 3 && level > 0.1) {
-          ctx.beginPath();
-          ctx.arc(x, y, size * 2, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(192, 192, 192, ${alpha * 0.2})`;
-          ctx.fill();
-        }
       }
 
       animationRef.current = requestAnimationFrame(draw);
